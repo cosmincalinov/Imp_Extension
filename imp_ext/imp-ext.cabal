@@ -68,7 +68,8 @@ executable imp-ext
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    containers ^>=0.6.7,
+    build-depends:    parallel ^>=3.2.2.0,
+                      containers ^>=0.6.7,
                       containers ^>=0.6.7,
                       base ^>=4.17.2.1,
                       HUnit ^>= 1.6

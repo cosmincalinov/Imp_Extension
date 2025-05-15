@@ -1,15 +1,16 @@
 module Main where
-import Control.Concurrent (forkIO)
-import Control.Concurrent.MVar
-import qualified Data.Map as M
-import GHC.IO (unsafePerformIO)
-import Control.Monad (forM_)
+import Control.Parallel.Strategies
 -- import Test.HUnit
 
+-- TODO: rezolvat problema cu import-urile
+-- TODO: de tradus tot in engleza
+-- TODO: unit testing cu HUnit
+-- TODO: testare paralelism
+-- TODO: poate adaugare mai multor tipuri de date (char, string, float)
 
 newtype Variabila = Var String deriving(Eq, Ord, Show)
 
-data Valoare = VInt Int 
+data Valoare = VInt Int
              | VBool Bool
              deriving(Show)
 
@@ -45,31 +46,31 @@ get (List sigma) v = case lookup v sigma of
 exp' :: Stare -> Exp -> (Valoare, Stare)
 exp' sigma (EVar v) = get sigma v
 exp' sigma (EInt i) = (VInt i, sigma)
-exp' sigma (EAdd e1 e2) = 
+exp' sigma (EAdd e1 e2) =
     let (VInt v1, sigma1) = exp' sigma e1
         (VInt v2, sigma2) = exp' sigma1 e2
     in (VInt (v1 + v2), sigma2)
-exp' sigma (EMul e1 e2) = 
+exp' sigma (EMul e1 e2) =
     let (VInt v1, sigma1) = exp' sigma e1
         (VInt v2, sigma2) = exp' sigma1 e2
     in (VInt (v1 * v2), sigma2)
-exp' sigma (EDiv e1 e2) = 
+exp' sigma (EDiv e1 e2) =
     let (VInt v1, sigma1) = exp' sigma e1
         (VInt v2, sigma2) = exp' sigma1 e2
     in (VInt (v1 `div` v2), sigma2)
-exp' sigma (ESub e1 e2) = 
+exp' sigma (ESub e1 e2) =
     let (VInt v1, sigma1) = exp' sigma e1
         (VInt v2, sigma2) = exp' sigma1 e2
     in (VInt (v1 - v2), sigma2)
-exp' sigma (EMod e1 e2) = 
+exp' sigma (EMod e1 e2) =
     let (VInt v1, sigma1) = exp' sigma e1
         (VInt v2, sigma2) = exp' sigma1 e2
     in (VInt (v1 `mod` v2), sigma2)
-exp' sigma (EPow e1 e2) = 
+exp' sigma (EPow e1 e2) =
     let (VInt v1, sigma1) = exp' sigma e1
         (VInt v2, sigma2) = exp' sigma1 e2
     in (VInt (v1 ^ v2), sigma2)
-exp' sigma (BEq e1 e2) = 
+exp' sigma (BEq e1 e2) =
     let (VInt v1, sigma1) = exp' sigma e1
         (VInt v2, sigma2) = exp' sigma1 e2
     in (VBool (v1 == v2), sigma2)
@@ -115,16 +116,16 @@ data Stmt = Assign Variabila Exp -- operatorul = din alte limbaje
 set :: Stare -> Variabila -> Valoare -> Stare
 set (List sigma) setVar setVal =
     case sigma of
-        [] ->  List [(setVar, setVal)] 
-        (var, val) : other -> 
+        [] ->  List [(setVar, setVal)]
+        (var, val) : other ->
             if var == setVar
             then List ((setVar, setVal) : other)
             else case set (List other) setVar setVal of
                 List updated -> List ((var,val) : updated)
 
 stmt :: Stare -> Stmt -> Stare
-stmt sigma (Seq s1 s2) = 
-    let sigma' = stmt sigma s1 
+stmt sigma (Seq s1 s2) =
+    let sigma' = stmt sigma s1
     in stmt sigma' s2
 stmt sigma (Assign var expr) =
     let (val, sigma') = exp' sigma expr
@@ -138,35 +139,37 @@ stmt sigma (While expr stmt1) =
     case exp' sigma expr of
         (VBool True, _) -> let sigma2 = stmt sigma stmt1
             in stmt sigma2 (While expr stmt1)
-        (VBool False, _) -> sigma 
+        (VBool False, _) -> sigma
 stmt sigma Skip = sigma
 stmt sigma (Block []) = sigma
 stmt sigma (Block (stmt1 : rest)) =
     let sigma2 = stmt sigma stmt1
     in stmt sigma2 (Block rest)
-stmt sigma (Par stmts) = unsafePerformIO (runParallel sigma stmts)
+stmt sigma (Par stmts) =
+    let partials = withStrategy (parList rpar $!) (map (stmt sigma) stmts)
+    -- TODO: verifica daca modificarile sunt consistente sau evaluare de expresii in paralel
+    in foldl myMerge (List []) partials -- facem merge la fiecare stare
 
--- poate inspirat din Orc
--- Par Stmt1 Stmt2
--- Par [Stmt], trb facut join
--- deschid un forkIO(), vad cum recuperez rezultatul
-merge :: Stare -> Stare -> Stare
-merge (List sigma1) (List sigma2) =
-    let m1 = M.fromList sigma1
-        m2 = M.fromList sigma2
-        merged = M.union m2 m1 
-    in List (M.toList merged)
+removeDups :: [(Variabila, Valoare)] -> [(Variabila, Valoare)]
+removeDups = go []
+  where
+    go seen [] = seen -- am vazut tot -> nu mai exista duplicate in lista, 
+    -- intoarcem list
+    go seen ((k,v):rest) -- destructuram primul tuplu din lista actuala
+      | k `elem` map fst seen = go seen rest -- daca se gaseste il
+      -- ignoram / eliminam
+      | otherwise             = go (seen ++ [(k,v)]) rest -- daca nu
+      -- il concatenam cu seen
 
-runParallel :: Stare -> [Stmt] -> IO Stare
-runParallel sigma stmts = do
-    shared <- newMVar sigma
-    doneVars <- mapM (const newEmptyMVar) stmts
-    forM_ (zip stmts doneVars) $ \(stmti, done) -> forkIO $ do
-        let partial = stmt sigma stmti
-        modifyMVar_ shared $ \global -> return (merge global partial)
-        putMVar done ()
-    mapM_ takeMVar doneVars
-    readMVar shared
+myMerge (List s1) (List s2) =
+  List (removeDups (s2 ++ s1))
+-- pentru a face merge va trebui sa eliminam duplicatele
+-- in urma concatenarii pentru a nu aparea confilcte
+-- ex.: definirea unei variabile cu acelasi nume in
+-- 2 stmt separate
+
+-- s2, inainte lui s1, deoarece schimbarile finale
+-- ale starii au o prioritate mai mare
 
 main :: IO ()
 main = do
@@ -181,25 +184,25 @@ main = do
     -- print val
 
     -- Test 2
-    let x = Var "x"
-        y = Var "y"
-        stmt1 = Assign x (EInt 0)
-        stmt2 = While (BLt (EVar x) (EInt 3)) (Block [
-            Assign y (EAdd (EVar x) (EInt 1)),
-            Assign x (EAdd (EVar x) (EInt 1)) ])
-        program = Seq stmt1 stmt2
-        stare = List []
-        finalState = stmt stare program
-        (val, _) = get finalState y
-    print val
-
-    -- Test 3
     -- let x = Var "x"
     --     y = Var "y"
-    --     p = Par [Assign x (EInt 1), Assign y (EInt 2)]
-    --     s = stmt (List []) p
-    --     (vx, _) = get s x
-    --     (vy, _) = get s y
-    -- print vx
-    -- print vy
+    --     stmt1 = Assign x (EInt 0)
+    --     stmt2 = While (BLt (EVar x) (EInt 3)) (Block [
+    --         Assign y (EAdd (EVar x) (EInt 1)),
+    --         Assign x (EAdd (EVar x) (EInt 1)) ])
+    --     program = Seq stmt1 stmt2
+    --     stare = List []
+    --     finalState = stmt stare program
+    --     (val, _) = get finalState y
+    -- print val
+
+    -- Test 3
+    let x = Var "x"
+        y = Var "y"
+        p = Par [Assign x (EInt 1), Assign y (EInt 2)]
+        s = stmt (List []) p
+        (vx, _) = get s x
+        (vy, _) = get s y
+    print vx
+    print vy
 
