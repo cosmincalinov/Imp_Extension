@@ -8,6 +8,7 @@ import Control.Parallel.Strategies
 -- TODO: testare paralelism
 -- TODO: poate adaugare mai multor tipuri de date (char, string, float)
 -- TODO: compilare si rulare cu ghc pt a specifica nr de procese
+-- TODO: impartirea in fisiere/module
 
 newtype Variabila = Var String deriving(Eq, Ord, Show)
 
