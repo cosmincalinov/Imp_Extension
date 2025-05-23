@@ -10,16 +10,6 @@
   (major1) == 0 && (major2) <  1 || \
   (major1) == 0 && (major2) == 1 && (minor) <= 0)
 #endif /* MIN_VERSION_imp_ext */
-/* package HUnit-1.6.2.0 */
-#ifndef VERSION_HUnit
-#define VERSION_HUnit "1.6.2.0"
-#endif /* VERSION_HUnit */
-#ifndef MIN_VERSION_HUnit
-#define MIN_VERSION_HUnit(major1,major2,minor) (\
-  (major1) <  1 || \
-  (major1) == 1 && (major2) <  6 || \
-  (major1) == 1 && (major2) == 6 && (minor) <= 2)
-#endif /* MIN_VERSION_HUnit */
 /* package base-4.17.2.1 */
 #ifndef VERSION_base
 #define VERSION_base "4.17.2.1"
@@ -40,6 +30,16 @@
   (major1) == 0 && (major2) <  6 || \
   (major1) == 0 && (major2) == 6 && (minor) <= 7)
 #endif /* MIN_VERSION_containers */
+/* package imp-ext-0.1.0.0 */
+#ifndef VERSION_imp_ext
+#define VERSION_imp_ext "0.1.0.0"
+#endif /* VERSION_imp_ext */
+#ifndef MIN_VERSION_imp_ext
+#define MIN_VERSION_imp_ext(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  1 || \
+  (major1) == 0 && (major2) == 1 && (minor) <= 0)
+#endif /* MIN_VERSION_imp_ext */
 /* package parallel-3.2.2.0 */
 #ifndef VERSION_parallel
 #define VERSION_parallel "3.2.2.0"
