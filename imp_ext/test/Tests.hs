@@ -50,8 +50,28 @@ prop_exec_secv_is_comp :: MyState -> Stmt -> Stmt -> Bool
 prop_exec_secv_is_comp sigma stmt1 stmt2 = 
   stmt sigma (Seq stmt1 stmt2) == stmt (stmt sigma stmt1) stmt2
 
+prop_assoc_seq_comp sigma stmt1 stmt2 stmt3 =
+  stmt sigma (Seq (Seq stmt1 stmt2) stmt3) == stmt sigma (Seq stmt1 (Seq stmt2 stmt3))
+
+prop_assign_check :: MyState -> Variable -> Int -> Bool
+prop_assign_check sigma x i = 
+    let expr = EInt i
+        stmt_assign = Assign x expr
+        final_state = stmt sigma stmt_assign
+        (val, _) = get final_state x
+    in val == VInt i
+
+prop_determinism :: MyState -> Stmt -> Bool
+prop_determinism sigma st =
+    let run1 = stmt sigma st
+        run2 = stmt sigma st
+    in run1 == run2
+
 main :: IO ()
 main = do
   void (runTestTT tests)
   quickCheck prop_skip_doesnt_modify_state
   quickCheck prop_exec_secv_is_comp
+  quickCheck prop_assoc_seq_comp
+  quickCheck prop_assign_check
+  quickCheck prop_determinism
