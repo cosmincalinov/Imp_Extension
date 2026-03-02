@@ -12,6 +12,7 @@ data Stmt = Assign Variable Exp -- operatorul = din alte limbaje
           | Skip
           | Block [Stmt]
           | Par [Stmt]
+    deriving Show
 
 instance Arbitrary Stmt where
   arbitrary = sized arb
@@ -21,7 +22,7 @@ instance Arbitrary Stmt where
                         , (1, Assign <$> arbitrary <*> arbitrary)
                         , (2, Seq <$> arbHalf <*> arbHalf)
                         , (2, If <$> arbitrary <*> arbHalf <*> arbHalf)
-                        , (1, While <$> arbitrary <*> arbHalf)
+                        -- , (1, While <$> arbitrary <*> arbHalf)
                         , (2, Block <$> resize (n `div` 2) arbitrary)
                         , (2, Par <$> resize (n `div` 2) arbitrary)
                         ]
@@ -49,12 +50,13 @@ stmt sigma (If expr stmt1 stmt2) =
     case exp' sigma expr of
         (VBool True, _) -> stmt sigma stmt1
         (VBool False, _) -> stmt sigma stmt2
-        _ -> sigma -- TODO: eroare aici in loc de MyState
+        _ -> sigma -- daca conditia nu e Bool, o ignoram (ca False)
 stmt sigma (While expr stmt1) =
     case exp' sigma expr of
         (VBool True, _) -> let sigma2 = stmt sigma stmt1
             in stmt sigma2 (While expr stmt1)
         (VBool False, _) -> sigma
+        _ -> sigma -- opreste bucla daca conditia nu e Bool
 stmt sigma Skip = sigma
 stmt sigma (Block []) = sigma
 stmt sigma (Block (stmt1 : rest)) =

@@ -42,12 +42,16 @@ tests = TestList
 
 -- properties
 prop_skip_doesnt_modify_state :: MyState -> Bool
-prop_skip_doesnt_modify_state st =
-  let st' = stmt st Skip 
-  in st == st'
+prop_skip_doesnt_modify_state sigma =
+  let sigma' = stmt sigma Skip 
+  in sigma == sigma'
    
+prop_exec_secv_is_comp :: MyState -> Stmt -> Stmt -> Bool
+prop_exec_secv_is_comp sigma stmt1 stmt2 = 
+  stmt sigma (Seq stmt1 stmt2) == stmt (stmt sigma stmt1) stmt2
 
 main :: IO ()
 main = do
   void (runTestTT tests)
   quickCheck prop_skip_doesnt_modify_state
+  quickCheck prop_exec_secv_is_comp

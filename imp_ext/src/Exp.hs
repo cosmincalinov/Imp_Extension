@@ -20,6 +20,7 @@ data Exp = EVar Variable
          | BAnd Exp Exp
          | BOr Exp Exp
          | BNot Exp
+    deriving Show
 
 instance Arbitrary Exp where
   arbitrary = sized arb
@@ -52,63 +53,73 @@ get (List sigma) v = case lookup v sigma of
     Just val -> (val, List sigma)
     Nothing -> (VInt 0, List sigma)
 
+getInt :: Value -> Int
+getInt (VInt i) = i
+getInt _ = 0 -- Default value on type error
+
+getBool :: Value -> Bool
+getBool (VBool b) = b
+getBool _ = False
+
 exp' :: MyState -> Exp -> (Value, MyState)
 exp' sigma (EVar v) = get sigma v
 exp' sigma (EInt i) = (VInt i, sigma)
 exp' sigma (EAdd e1 e2) =
-    let (VInt v1, sigma1) = exp' sigma e1
-        (VInt v2, sigma2) = exp' sigma1 e2
-    in (VInt (v1 + v2), sigma2)
+    let (v1, sigma1) = exp' sigma e1
+        (v2, sigma2) = exp' sigma1 e2
+    in (VInt (getInt v1 + getInt v2), sigma2)
 exp' sigma (EMul e1 e2) =
-    let (VInt v1, sigma1) = exp' sigma e1
-        (VInt v2, sigma2) = exp' sigma1 e2
-    in (VInt (v1 * v2), sigma2)
+    let (v1, sigma1) = exp' sigma e1
+        (v2, sigma2) = exp' sigma1 e2
+    in (VInt (getInt v1 * getInt v2), sigma2)
 exp' sigma (EDiv e1 e2) =
-    let (VInt v1, sigma1) = exp' sigma e1
-        (VInt v2, sigma2) = exp' sigma1 e2
-    in (VInt (v1 `div` v2), sigma2)
+    let (v1, sigma1) = exp' sigma e1
+        (v2, sigma2) = exp' sigma1 e2
+        d = getInt v2
+    in if d == 0 then (VInt 0, sigma2) else (VInt (getInt v1 `div` d), sigma2)
 exp' sigma (ESub e1 e2) =
-    let (VInt v1, sigma1) = exp' sigma e1
-        (VInt v2, sigma2) = exp' sigma1 e2
-    in (VInt (v1 - v2), sigma2)
+    let (v1, sigma1) = exp' sigma e1
+        (v2, sigma2) = exp' sigma1 e2
+    in (VInt (getInt v1 - getInt v2), sigma2)
 exp' sigma (EMod e1 e2) =
-    let (VInt v1, sigma1) = exp' sigma e1
-        (VInt v2, sigma2) = exp' sigma1 e2
-    in (VInt (v1 `mod` v2), sigma2)
+    let (v1, sigma1) = exp' sigma e1
+        (v2, sigma2) = exp' sigma1 e2
+        d = getInt v2
+    in if d == 0 then (VInt 0, sigma2) else (VInt (getInt v1 `mod` d), sigma2)
 exp' sigma (EPow e1 e2) =
-    let (VInt v1, sigma1) = exp' sigma e1
-        (VInt v2, sigma2) = exp' sigma1 e2
-    in (VInt (v1 ^ v2), sigma2)
+    let (v1, sigma1) = exp' sigma e1
+        (v2, sigma2) = exp' sigma1 e2
+        val2 = getInt v2
+    in (VInt (getInt v1 ^ (if val2 < 0 then 0 else val2)), sigma2)
 exp' sigma (BEq e1 e2) =
-    let (VInt v1, sigma1) = exp' sigma e1
-        (VInt v2, sigma2) = exp' sigma1 e2
-    in (VBool (v1 == v2), sigma2)
+    let (v1, sigma1) = exp' sigma e1
+        (v2, sigma2) = exp' sigma1 e2
+    in (VBool (getInt v1 == getInt v2), sigma2)
 exp' sigma (BLt e1 e2) =
-    let (VInt v1, sigma1) = exp' sigma e1
-        (VInt v2, sigma2) = exp' sigma1 e2
-    in (VBool (v1 < v2), sigma2)
+    let (v1, sigma1) = exp' sigma e1
+        (v2, sigma2) = exp' sigma1 e2
+    in (VBool (getInt v1 < getInt v2), sigma2)
 exp' sigma (BGt e1 e2) =
-    let (VInt v1, sigma1) = exp' sigma e1
-        (VInt v2, sigma2) = exp' sigma1 e2
-    in (VBool (v1 > v2), sigma2)
+    let (v1, sigma1) = exp' sigma e1
+        (v2, sigma2) = exp' sigma1 e2
+    in (VBool (getInt v1 > getInt v2), sigma2)
 exp' sigma (BLte e1 e2) =
-    let (VInt v1, sigma1) = exp' sigma e1
-        (VInt v2, sigma2) = exp' sigma1 e2
-    in (VBool (v1 <= v2), sigma2)
+    let (v1, sigma1) = exp' sigma e1
+        (v2, sigma2) = exp' sigma1 e2
+    in (VBool (getInt v1 <= getInt v2), sigma2)
 exp' sigma (BGte e1 e2) =
-    let (VInt v1, sigma1) = exp' sigma e1
-        (VInt v2, sigma2) = exp' sigma1 e2
-    in (VBool (v1 >= v2), sigma2)
+    let (v1, sigma1) = exp' sigma e1
+        (v2, sigma2) = exp' sigma1 e2
+    in (VBool (getInt v1 >= getInt v2), sigma2)
 exp' sigma (BAnd b1 b2) =
-    let (VBool v1, sigma1) = exp' sigma b1
-        (VBool v2, sigma2) = exp' sigma1 b2
-    in (VBool (v1 && v2), sigma2)
+    let (v1, sigma1) = exp' sigma b1
+        (v2, sigma2) = exp' sigma1 b2
+    in (VBool (getBool v1 && getBool v2), sigma2)
 exp' sigma (BOr b1 b2) =
-    let (VBool v1, sigma1) = exp' sigma b1
-        (VBool v2, sigma2) = exp' sigma1 b2
-    in (VBool (v1 || v2), sigma2)
+    let (v1, sigma1) = exp' sigma b1
+        (v2, sigma2) = exp' sigma1 b2
+    in (VBool (getBool v1 || getBool v2), sigma2)
 exp' sigma (BNot b) =
-    let (VBool v1, sigma1) = exp' sigma b
-    in (VBool (not v1), sigma1)
+    let (v1, sigma1) = exp' sigma b
+    in (VBool (not (getBool v1)), sigma1)
 exp' sigma (BExp b) = (VBool b, sigma)
-exp' _ _ = error "Nevalid" -- dar de acesta este nevoie ?
