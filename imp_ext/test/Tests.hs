@@ -5,6 +5,7 @@ import Exp
 import Stmt
 import Common
 import Control.Monad (void)
+import Test.QuickCheck
 
 -- Test 1: Seq Assignment
 stmt1 = Assign (Var "x") (EInt 1)
@@ -39,5 +40,14 @@ tests = TestList
   , "Parallel y"     ~: actual3y ~?= expected3y
   ]
 
+-- properties
+prop_skip_doesnt_modify_state :: MyState -> Bool
+prop_skip_doesnt_modify_state st =
+  let st' = stmt st Skip 
+  in st == st'
+   
+
 main :: IO ()
-main = void (runTestTT tests)
+main = do
+  void (runTestTT tests)
+  quickCheck prop_skip_doesnt_modify_state
