@@ -9,7 +9,9 @@ data Value = VInt Int | VBool Bool deriving (Eq, Show)
 newtype MyState = List [(Variable, Value)] deriving Show
 
 instance Arbitrary Variable where
-  arbitrary = Var <$> arbitrary
+  arbitrary = do
+    c <- elements ['a'..'z']
+    return $ Var [c]
 
 instance Arbitrary Value where
   arbitrary = do
@@ -19,5 +21,3 @@ instance Arbitrary Value where
 
 instance Arbitrary MyState where
   arbitrary = List <$> arbitrary
-
--- TODO: Fix cabal check not working
