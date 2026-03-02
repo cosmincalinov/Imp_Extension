@@ -3,6 +3,7 @@ module Stmt where
 import Exp
 import Common
 import Control.Parallel.Strategies
+import Test.QuickCheck
 
 data Stmt = Assign Variable Exp -- operatorul = din alte limbaje
           | Seq Stmt Stmt -- pt a inlantui stmt-uri
@@ -11,6 +12,20 @@ data Stmt = Assign Variable Exp -- operatorul = din alte limbaje
           | Skip
           | Block [Stmt]
           | Par [Stmt]
+
+instance Arbitrary Stmt where
+  arbitrary = sized arb
+    where
+      arb 0 = oneof [return Skip, Assign <$> arbitrary <*> arbitrary]
+      arb n = frequency [ (1, return Skip)
+                        , (1, Assign <$> arbitrary <*> arbitrary)
+                        , (2, Seq <$> arbHalf <*> arbHalf)
+                        , (2, If <$> arbitrary <*> arbHalf <*> arbHalf)
+                        , (1, While <$> arbitrary <*> arbHalf)
+                        , (2, Block <$> resize (n `div` 2) arbitrary)
+                        , (2, Par <$> resize (n `div` 2) arbitrary)
+                        ]
+        where arbHalf = arb (n `div` 2)
 
 -- schimba MyState, adaugand sau inlocuind variabile
 set :: MyState -> Variable -> Value -> MyState
