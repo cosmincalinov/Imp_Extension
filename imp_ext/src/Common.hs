@@ -6,7 +6,7 @@ newtype Variable = Var String deriving (Eq, Ord, Show)
 
 data Value = VInt Int | VBool Bool deriving (Eq, Show)
 
-newtype MyState = List [(Variable, Value)]
+newtype MyState = List [(Variable, Value)] deriving Show
 
 instance Arbitrary Variable where
   arbitrary = Var <$> arbitrary
@@ -16,3 +16,8 @@ instance Arbitrary Value where
     vInt <- arbitrary
     vBool <- arbitrary
     elements [VInt vInt, VBool vBool]
+
+instance Arbitrary MyState where
+  arbitrary = List <$> arbitrary
+
+-- TODO: Fix cabal check not working
