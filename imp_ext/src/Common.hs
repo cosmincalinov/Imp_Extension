@@ -10,3 +10,9 @@ newtype MyState = List [(Variable, Value)]
 
 instance Arbitrary Variable where
   arbitrary = Var <$> arbitrary
+
+instance Arbitrary Value where
+  arbitrary = do
+    vInt <- arbitrary
+    vBool <- arbitrary
+    elements [VInt vInt, VBool vBool]
