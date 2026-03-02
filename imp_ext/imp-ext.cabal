@@ -6,6 +6,8 @@ license-file:       LICENSE
 author:             CalinovCosmin
 maintainer:         cosmin.calinov03@gmail.com
 category:           Language
+synopsis:           An extension to the IMP language
+description:        This package implements an interpreter and extensions for the IMP imperative language.
 build-type:         Simple
 extra-doc-files:    CHANGELOG.md
 
