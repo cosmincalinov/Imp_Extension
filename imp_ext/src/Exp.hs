@@ -28,7 +28,7 @@ instance Arbitrary Exp where
       arb n = frequency [ (1, EVar <$> arbitrary)
                         , (1, EInt <$> arbitrary)
                         , (1, BExp <$> arbitrary)
-                        , (1, BNot <$> arb n)
+                        , (1, BNot <$> arb (n - 1))
                         , (2, EAdd <$> arb (n `div` 2) <*> arb (n `div` 2)) 
                         , (2, EMul <$> arb (n `div` 2) <*> arb (n `div` 2)) 
                         , (2, ESub <$> arb (n `div` 2) <*> arb (n `div` 2)) 
