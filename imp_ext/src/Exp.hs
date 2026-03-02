@@ -1,6 +1,7 @@
 module Exp (Exp(..), exp', get) where
 
 import Common
+import Test.QuickCheck
 
 data Exp = EVar Variable
          | EInt Int
@@ -19,6 +20,29 @@ data Exp = EVar Variable
          | BAnd Exp Exp
          | BOr Exp Exp
          | BNot Exp
+
+instance Arbitrary Exp where
+  arbitrary = sized arb
+    where
+      arb 0 = EVar <$> arbitrary
+      arb n = frequency [ (1, EVar <$> arbitrary)
+                        , (1, EInt <$> arbitrary)
+                        , (1, BExp <$> arbitrary)
+                        , (1, BNot <$> arb n)
+                        , (2, EAdd <$> arb (n `div` 2) <*> arb (n `div` 2)) 
+                        , (2, EMul <$> arb (n `div` 2) <*> arb (n `div` 2)) 
+                        , (2, ESub <$> arb (n `div` 2) <*> arb (n `div` 2)) 
+                        , (2, EDiv <$> arb (n `div` 2) <*> arb (n `div` 2)) 
+                        , (2, EMod <$> arb (n `div` 2) <*> arb (n `div` 2)) 
+                        , (2, EPow <$> arb (n `div` 2) <*> arb (n `div` 2)) 
+                        , (2, BEq <$> arb (n `div` 2) <*> arb (n `div` 2)) 
+                        , (2, BLt <$> arb (n `div` 2) <*> arb (n `div` 2)) 
+                        , (2, BGt <$> arb (n `div` 2) <*> arb (n `div` 2)) 
+                        , (2, BLte <$> arb (n `div` 2) <*> arb (n `div` 2)) 
+                        , (2, BGte <$> arb (n `div` 2) <*> arb (n `div` 2)) 
+                        , (2, BAnd <$> arb (n `div` 2) <*> arb (n `div` 2)) 
+                        , (2, BOr <$> arb (n `div` 2) <*> arb (n `div` 2)) 
+                        ]
 
 -- cauta Value unei variabile si intoarce MyState
 -- intr-un tuplu
