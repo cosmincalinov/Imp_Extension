@@ -50,6 +50,7 @@ prop_exec_secv_is_comp :: MyState -> Stmt -> Stmt -> Bool
 prop_exec_secv_is_comp sigma stmt1 stmt2 = 
   stmt sigma (Seq stmt1 stmt2) == stmt (stmt sigma stmt1) stmt2
 
+prop_assoc_seq_comp :: MyState -> Stmt -> Stmt -> Stmt -> Bool
 prop_assoc_seq_comp sigma stmt1 stmt2 stmt3 =
   stmt sigma (Seq (Seq stmt1 stmt2) stmt3) == stmt sigma (Seq stmt1 (Seq stmt2 stmt3))
 

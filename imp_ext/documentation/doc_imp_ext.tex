@@ -4,6 +4,23 @@
 
 \usepackage[hidelinks]{hyperref}
 \usepackage{url}
+\usepackage{syntax}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\lstset{
+	language=Haskell,
+	basicstyle=\small\ttfamily,
+	keywordstyle=\color{blue}\bfseries,
+	commentstyle=\color{gray},
+	stringstyle=\color{red},
+	showstringspaces=false,
+	breaklines=true,
+	frame=single,
+	numbers=left,
+	numberstyle=\tiny\color{gray}
+}
 
 \begin{document}
 	\maketitle
@@ -11,8 +28,133 @@
 	\section{Introduction}
 	\section{Definition}
 	\section{Abstract Syntax Tree}
+	\subsection{Formal Grammar}
+	\setlength{\grammarparsep}{10pt plus 1pt minus 1pt} 
+
+	What programs look like
+	\begin{grammar}
+		<Exp> ::= <Integer> | <Variable> 
+		\alt <Exp> `+' <Exp> | <Exp> `*' <Exp>
+		\alt <Exp> `-' <Exp> | <Exp> `/' <Exp>
+		\alt <Exp> `\%' <Exp> | <Exp> `^' <Exp>
+		\alt `true' | `false'
+		\alt <Exp> `==' <Exp> | <Exp> `<=' <Exp>
+		\alt <Exp> `>=' <Exp> | <Exp> `<' <Exp>
+		\alt <Exp> `>' <Exp> | `not' <Exp>
+		\alt <Exp> `&&' <Exp> | <Exp> `||' <Exp>
+		
+		<Stmt> ::= `skip'
+		\alt <Variable> `:=' <Exp>
+		\alt <Stmt> `;' <Stmt>
+		\alt `if' <Exp> `then' <Stmt> `else' <Stmt>
+		\alt `while' <Exp> `do' <Stmt>
+		\alt `{' <Stmt> `}'
+		\alt `par' `[' <Stmt> `]'
+	\end{grammar}
+	
+	
+	\subsection{Data Types}
+	\subsection*{Common Data Types}
+	
+	\begin{lstlisting}
+		newtype Variable = Var String deriving (Eq, Ord, Show)
+		
+		data Value = VInt Int | VBool Bool deriving (Eq, Show)
+		
+		newtype MyState = List [(Variable, Value)] deriving (Eq, Show)
+	\end{lstlisting}
+	
+	\subsection*{Expression}
+	\begin{lstlisting}
+		data Exp = EVar Variable
+		         | EInt Int
+		         | EAdd Exp Exp
+		         | EMul Exp Exp
+		         | ESub Exp Exp
+		         | EDiv Exp Exp
+		         | EMod Exp Exp
+		         | EPow Exp Exp
+		         | BExp Bool
+		         | BEq Exp Exp
+		         | BLt Exp Exp
+		         | BGt Exp Exp
+		         | BLte Exp Exp
+		         | BGte Exp Exp
+		         | BAnd Exp Exp
+		         | BOr Exp Exp
+		         | BNot Exp
+		deriving Show
+	\end{lstlisting}
+	
+	\subsection*{Statement}
+	\begin{lstlisting}
+		data Stmt = Assign Variable Exp -- equals operator
+		          | Seq Stmt Stmt -- sequence 2 statements
+		          | If Exp Stmt Stmt -- last statement for else branch
+		          | While Exp Stmt
+		          | Skip
+		          | Block [Stmt]
+		          | Par [Stmt]
+		deriving Show
+	\end{lstlisting}
 	\section{Formal Semantics}
+	What programs do
+	
+	\subsection{Skip}
+	\[
+	\dfrac{}{\langle \text{skip}, \sigma \rangle \Downarrow \sigma}
+	\]
+	\subsection{Assignment}
+	\[
+	\frac{\langle e, \sigma \rangle \Downarrow v}
+	{\langle x := e, \sigma \rangle \Downarrow \sigma[x \mapsto v]}
+	\]
+	
+	\subsection{Sequencing}
+	\[
+	\frac{\langle S_1, \sigma \rangle \Downarrow \sigma' \quad \langle S_2, \sigma' \rangle \Downarrow \sigma''}
+	{\langle S_1 ; S_2, \sigma \rangle \Downarrow \sigma''}
+	\]
+	
+	\subsection{While}
+	\subsection*{True}
+	\[
+	\frac{\langle b, \sigma \rangle \Downarrow true \quad \langle S, \sigma \rangle \Downarrow \sigma' \quad \langle \text{while }b \text{ do } S, \sigma' \rangle \Downarrow \sigma''}
+	{\langle \text{while } b \text{ do } S, \sigma \rangle \Downarrow \sigma''}
+	\]
+	\subsection*{False}
+	\[
+	\frac{\langle b, \sigma \rangle \Downarrow false}
+	{\langle \text{while } b \text { do } S, \sigma \rangle \Downarrow \sigma}
+	\]
+	
 	\section{Property-based Testing using QuickCheck}
+	\subsection{Skip doesn't modify the state of the program}
+	Skip statement's usefulness is shown in this property. 
+	\[
+	\text{stmt}(\sigma, \text{Skip}) = \sigma
+	\]
+	\subsection{Sequential execution is compositional}
+	A staple for all programming languages that are deterministic.
+	\[
+	\text{stmt}(\sigma, \text{Seq } s_1 s_2) = \text{stmt}(\text{stmt}(\sigma, s_1), s_2)
+	\]
+	\subsection{Assigning a variable and then getting its value returns the assigned value}
+	Basic testing for state's functionality.
+	\[
+	\text{get}(\text{stmt}(\sigma, \text{Assign }x \text{ } v), x) = v
+	\]
+	\subsection{Sequencing statements is associative}
+	Doesn't matter in which order you run the operation, the end result is the same.
+	\[
+	\text{stmt}(\sigma, \text{Seq}(\text{Seq}(s_1, s_2), s_3) = \text{stmt}(\sigma, \text{Seq}(s_1, \text{Seq}(s_2, s_3))
+	\]
+	\subsection{Program execution is deterministic}
+	This property illustrates that the rules of the language are consistent i.e. running the same statement at two different times doesn't change it's outcome. This is especially useful when it comes to the Par statement, which is specifically designed to be deterministic. Other possible implementations could have chosen more stochastic approaches, the test failing in those particular cases. Another challenge was that While loops could run indefinitely. This was caused by the fact that the generated condition of the While loop would sometimes evaluate to True, thus running forever. I chose the simplest fix: I removed the the While statement from the Arbitrary instance of Stmt. The other possible fix would have been to add a "gas" limit for every evaluation of each statement, but this would have required to change the the signature and consequently a significant part of the evaluation function's logic.
+	\[
+	\text{stmt}(\sigma, s) = \text{stmt}(\sigma, s)
+	\]
+	\section{Usage Examples}
 	
 	\section{References}
 	\begin{itemize}

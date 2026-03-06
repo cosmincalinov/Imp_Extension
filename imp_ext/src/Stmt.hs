@@ -5,9 +5,9 @@ import Common
 import Control.Parallel.Strategies
 import Test.QuickCheck
 
-data Stmt = Assign Variable Exp -- operatorul = din alte limbaje
-          | Seq Stmt Stmt -- pt a inlantui stmt-uri
-          | If Exp Stmt Stmt -- 2 Stmt si pentru else
+data Stmt = Assign Variable Exp -- equals operator
+          | Seq Stmt Stmt -- sequence 2 statements
+          | If Exp Stmt Stmt -- last statement for else branch
           | While Exp Stmt
           | Skip
           | Block [Stmt]
