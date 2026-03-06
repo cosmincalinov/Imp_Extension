@@ -78,6 +78,7 @@ removeDups = go []
       | otherwise             = go (seen ++ [(k,v)]) rest -- daca nu
       -- il concatenam cu seen
 
+myMerge :: MyState -> MyState -> MyState
 myMerge (List s1) (List s2) =
   List (removeDups (s2 ++ s1))
 -- pentru a face merge va trebui sa eliminam duplicatele
