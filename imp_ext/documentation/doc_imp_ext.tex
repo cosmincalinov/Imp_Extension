@@ -6,6 +6,7 @@
 \usepackage{url}
 \usepackage{syntax}
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{listings}
 \usepackage{xcolor}
 
@@ -26,11 +27,22 @@
 	\maketitle
 	
 	\section{Introduction}
-	\section{Definition}
+	This project implements an interpreter for an extended version of the IMP toy language using Haskell. The goal is to define the language formally (Syntax and Semantics) and verify its properties using property-based testing (QuickCheck).
+	
+	The language builds upon the standard IMP imperative language by adding:
+	\begin{itemize}
+		\item \textbf{Rich Arithmetic:} Support for Modulo (\texttt{\%}) and Power (\texttt{\^}) operators.
+		\item \textbf{Boolean Logic:} Full boolean expression support including comparison and logical operators.
+		\item \textbf{Scoping:} A \texttt{Block} construct to group statements.
+		\item \textbf{Concurrency:} A \texttt{Par} construct for the parallel execution of statements, which merges the resulting states deterministically.
+	\end{itemize}
+	
+	The interpreter relies on Big-Step Operational Semantics (Natural Semantics) to define the execution rules.
+	
 	\section{Abstract Syntax Tree}
 	\subsection{Formal Grammar}
 	\setlength{\grammarparsep}{10pt plus 1pt minus 1pt} 
-
+	
 	What programs look like
 	\begin{grammar}
 		<Exp> ::= <Integer> | <Variable> 
@@ -43,13 +55,15 @@
 		\alt <Exp> `>' <Exp> | `not' <Exp>
 		\alt <Exp> `&&' <Exp> | <Exp> `||' <Exp>
 		
+		<StmtList> ::= <Stmt> | <Stmt> `;' <StmtList>
+		
 		<Stmt> ::= `skip'
 		\alt <Variable> `:=' <Exp>
 		\alt <Stmt> `;' <Stmt>
 		\alt `if' <Exp> `then' <Stmt> `else' <Stmt>
 		\alt `while' <Exp> `do' <Stmt>
-		\alt `{' <Stmt> `}'
-		\alt `par' `[' <Stmt> `]'
+		\alt `{' <StmtList> `}'
+		\alt `par' `{' <StmtList> `}'
 	\end{grammar}
 	
 	
@@ -67,43 +81,71 @@
 	\subsection*{Expression}
 	\begin{lstlisting}
 		data Exp = EVar Variable
-		         | EInt Int
-		         | EAdd Exp Exp
-		         | EMul Exp Exp
-		         | ESub Exp Exp
-		         | EDiv Exp Exp
-		         | EMod Exp Exp
-		         | EPow Exp Exp
-		         | BExp Bool
-		         | BEq Exp Exp
-		         | BLt Exp Exp
-		         | BGt Exp Exp
-		         | BLte Exp Exp
-		         | BGte Exp Exp
-		         | BAnd Exp Exp
-		         | BOr Exp Exp
-		         | BNot Exp
+		| EInt Int
+		| EAdd Exp Exp
+		| EMul Exp Exp
+		| ESub Exp Exp
+		| EDiv Exp Exp
+		| EMod Exp Exp
+		| EPow Exp Exp
+		| BExp Bool
+		| BEq Exp Exp
+		| BLt Exp Exp
+		| BGt Exp Exp
+		| BLte Exp Exp
+		| BGte Exp Exp
+		| BAnd Exp Exp
+		| BOr Exp Exp
+		| BNot Exp
 		deriving Show
 	\end{lstlisting}
 	
+	\textbf{Note:} \texttt{EMod} and \texttt{EPow} correspond to the \texttt{\%} operator and \texttt{\^{}} operator, respectively.
+	
 	\subsection*{Statement}
 	\begin{lstlisting}
-		data Stmt = Assign Variable Exp -- equals operator
-		          | Seq Stmt Stmt -- sequence 2 statements
-		          | If Exp Stmt Stmt -- last statement for else branch
-		          | While Exp Stmt
-		          | Skip
-		          | Block [Stmt]
-		          | Par [Stmt]
+		data Stmt = Assign Variable Exp 
+		| Seq Stmt Stmt 
+		| If Exp Stmt Stmt 
+		| While Exp Stmt
+		| Skip
+		| Block [Stmt]
+		| Par [Stmt]
 		deriving Show
 	\end{lstlisting}
+	
+	\section{State}
+	The state in the extended language is just a function that takes a Variable and returns its assigned Value.
+	\[
+	\sigma : Var \rightarrow Val
+	\]
+	
 	\section{Formal Semantics}
-	What programs do
+	What programs do.
 	
 	\subsection{Skip}
 	\[
 	\dfrac{}{\langle \text{skip}, \sigma \rangle \Downarrow \sigma}
 	\]
+	
+	\subsection{Evaluation of Expressions}
+	The evaluation of expressions relies on the state $\sigma$ to retrieve variable values.
+	
+	\textbf{Constants and Variables:}
+	\[
+	\frac{}{\langle n, \sigma \rangle \Downarrow n} \quad (n \in \mathbb{Z})
+	\qquad
+	\frac{}{\langle b, \sigma \rangle \Downarrow b} \quad (b \in \{\text{true}, \text{false}\})
+	\qquad
+	\frac{x \in \text{Dom}(\sigma)}{\langle x, \sigma \rangle \Downarrow \sigma(x)}
+	\]
+	
+	\textbf{Binary Operations:}
+	For any binary operator $\oplus$ (e.g., $+$, $-$, $*$, $\le$, $\wedge$):
+	\[
+	\frac{\langle e_1, \sigma \rangle \Downarrow v_1 \quad \langle e_2, \sigma \rangle \Downarrow v_2}{\langle e_1 \oplus e_2, \sigma \rangle \Downarrow v_1 \oplus_{val} v_2}
+	\]
+	
 	\subsection{Assignment}
 	\[
 	\frac{\langle e, \sigma \rangle \Downarrow v}
@@ -116,16 +158,51 @@
 	{\langle S_1 ; S_2, \sigma \rangle \Downarrow \sigma''}
 	\]
 	
-	\subsection{While}
-	\subsection*{True}
+	\subsection{Conditional (If)}
+	\paragraph{True Branch}
 	\[
-	\frac{\langle b, \sigma \rangle \Downarrow true \quad \langle S, \sigma \rangle \Downarrow \sigma' \quad \langle \text{while }b \text{ do } S, \sigma' \rangle \Downarrow \sigma''}
+	\frac{\langle b, \sigma \rangle \Downarrow \text{true} \quad \langle S_1, \sigma \rangle \Downarrow \sigma'}{\langle \text{if } b \text{ then } S_1 \text{ else } S_2, \sigma \rangle \Downarrow \sigma'}
+	\]
+	
+	\paragraph{False Branch}
+	\[
+	\frac{\langle b, \sigma \rangle \Downarrow \text{false} \quad \langle S_2, \sigma \rangle \Downarrow \sigma'}{\langle \text{if } b \text{ then } S_1 \text{ else } S_2, \sigma \rangle \Downarrow \sigma'}
+	\]
+	
+	\subsection{While}
+	\paragraph{True}
+	\[
+	\frac{\langle b, \sigma \rangle \Downarrow \text{true} \quad \langle S, \sigma \rangle \Downarrow \sigma' \quad \langle \text{while }b \text{ do } S, \sigma' \rangle \Downarrow \sigma''}
 	{\langle \text{while } b \text{ do } S, \sigma \rangle \Downarrow \sigma''}
 	\]
-	\subsection*{False}
+	\paragraph{False}
 	\[
-	\frac{\langle b, \sigma \rangle \Downarrow false}
+	\frac{\langle b, \sigma \rangle \Downarrow \text{false}}
 	{\langle \text{while } b \text { do } S, \sigma \rangle \Downarrow \sigma}
+	\]
+	
+	\subsection{Block}
+	A block of statements behaves like a recursive sequence.
+	\[
+	\frac{}{\langle \text{block } [], \sigma \rangle \Downarrow \sigma}
+	\qquad
+	\frac{\langle S, \sigma \rangle \Downarrow \sigma' \quad \langle \text{block } Ss, \sigma' \rangle \Downarrow \sigma''}{\langle \text{block } (S:Ss), \sigma \rangle \Downarrow \sigma''}
+	\]
+	
+	\subsection{Parallel Execution (Par)}
+	Parallel execution evaluates a list of statements $[S_1, \dots, S_n]$ concurrently, all starting from the initial state $\sigma$. The final state is obtained by merging the resulting states.
+	\[
+	\frac{\forall i \in \{1..n\}, \langle S_i, \sigma \rangle \Downarrow \sigma_i \quad \sigma' = \text{merge}(\sigma_n, \dots, \sigma_1)}{\langle \textbf{par } [S_1, \dots, S_n], \sigma \rangle \Downarrow \sigma'}
+	\]
+	Where \textit{merge} resolves conflicts by prioritizing the last statement (Last Writer Wins):
+	\[
+	\text{merge}(\sigma_n, \dots, \sigma_1)(x) = 
+	\begin{cases} 
+		\sigma_n(x) & \text{if } x \in \text{Dom}(\sigma_n) \\
+		\sigma_{n-1}(x) & \text{if } x \notin \text{Dom}(\sigma_n) \text{ and } x \in \text{Dom}(\sigma_{n-1}) \\
+		\dots \\
+		\sigma_1(x) & \text{otherwise}
+	\end{cases}
 	\]
 	
 	\section{Property-based Testing using QuickCheck}
@@ -150,11 +227,46 @@
 	\text{stmt}(\sigma, \text{Seq}(\text{Seq}(s_1, s_2), s_3) = \text{stmt}(\sigma, \text{Seq}(s_1, \text{Seq}(s_2, s_3))
 	\]
 	\subsection{Program execution is deterministic}
-	This property illustrates that the rules of the language are consistent i.e. running the same statement at two different times doesn't change it's outcome. This is especially useful when it comes to the Par statement, which is specifically designed to be deterministic. Other possible implementations could have chosen more stochastic approaches, the test failing in those particular cases. Another challenge was that While loops could run indefinitely. This was caused by the fact that the generated condition of the While loop would sometimes evaluate to True, thus running forever. I chose the simplest fix: I removed the the While statement from the Arbitrary instance of Stmt. The other possible fix would have been to add a "gas" limit for every evaluation of each statement, but this would have required to change the the signature and consequently a significant part of the evaluation function's logic.
+	This property illustrates that the rules of the language are consistent i.e. running the same statement at two different times doesn't change its outcome. This is especially useful when it comes to the Par statement, which is specifically designed to be deterministic. Other possible implementations could have chosen more stochastic approaches, the test failing in those particular cases. Another challenge was that While loops could run indefinitely. This was caused by the fact that the generated condition of the While loop would sometimes evaluate to True, thus running forever. I chose the simplest fix: I removed the the While statement from the Arbitrary instance of Stmt. The other possible fix would have been to add a "fuel" limit for every evaluation of each statement, but this would have required to change the the signature and consequently a significant part of the evaluation function's logic.
 	\[
 	\text{stmt}(\sigma, s) = \text{stmt}(\sigma, s)
 	\]
 	\section{Usage Examples}
+	
+	\subsection{Example 1: Loop and Arithmetic}
+	\begin{lstlisting}
+		main :: IO ()
+		main = do
+		let x = Var "x"
+		y = Var "y"
+		example = Seq
+		(Assign x (EInt 0))
+		(While (BLt (EVar x) (EInt 3)) (Block
+		[ Assign y (EAdd (EVar x) (EInt 1))
+		, Assign x (EAdd (EVar x) (EInt 1))
+		]))
+		
+		final = stmt (List []) example
+		(val, _) = get final y
+		
+		putStrLn $ "Result of program (value of y): " ++ show val
+	\end{lstlisting}
+	\textbf{Output:} Result of program (value of y): VInt 3
+	
+	\subsection{Example 2: Parallel Assignment}
+	\begin{lstlisting}
+		stmt5 = Par 
+		[ Assign (Var "x") (EInt 1)
+		, Assign (Var "y") (EInt 2)]
+		finalState3 = stmt (List []) stmt5
+		valX = fst (get finalState3 (Var "x"))
+		valY = fst (get finalState3 (Var "y"))
+	\end{lstlisting}
+	\textbf{Result:}
+	\texttt{valX} is \texttt{VInt 1}, \texttt{valY} is \texttt{VInt 2}.
+	
+	\section{Conclusion}
+	This project successfully extended the IMP language with arithmetic operators, local scoping, and deterministic parallelism. The implementation was verified using the QuickCheck library, ensuring adherence to the formal semantics defined using Big-Step operational rules. The use of property-based testing proved effective in identifying edge cases, particularly in non-terminating loops and state consistency during parallel execution.
 	
 	\section{References}
 	\begin{itemize}
