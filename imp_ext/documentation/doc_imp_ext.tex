@@ -212,7 +212,7 @@ deriving Show
 	
 	To use QuickCheck with custom data types, the \texttt{Arbitrary} typeclass must be implemented. This tells the library how to generate random values for a specific type. In this project, \texttt{Arbitrary} instances were created for \texttt{Exp} and \texttt{Stmt} to randomly generate syntax trees. 
 	
-	The \texttt{sized} function for controlling the size of these generated structures preventing infinite recursion. Additionally, the \texttt{frequency} function guides the random generation by assigning probabilities to different constructors. For instance, binary constructors (like \texttt{EAdd} or \texttt{Seq}) are given a higher frequency and split the size parameter in half for recursive calls, ensuring a balanced distribution of program structures, while leaf nodes or unary constructors decrement the size linearly.
+	The \texttt{sized} function is used to control the size of these generated structures, preventing infinite recursion. Additionally, the \texttt{frequency} function guides the random generation by assigning probabilities to different constructors. For instance, binary constructors (like \texttt{EAdd} or \texttt{Seq}) are given a higher frequency and split the size parameter in half for recursive calls to ensure a balanced distribution, while leaf nodes decrement the size linearly.
 	\subsection{Skip doesn't modify the state of the program}
 	Skip statement's usefulness is shown in this property. 
 	\[
@@ -234,31 +234,54 @@ deriving Show
 	\text{stmt}(\sigma, \text{Seq}(\text{Seq}(s_1, s_2), s_3) = \text{stmt}(\sigma, \text{Seq}(s_1, \text{Seq}(s_2, s_3))
 	\]
 	\subsection{Program execution is deterministic}
-	This property illustrates that the rules of the language are consistent i.e. running the same statement at two different times doesn't change its outcome. This is especially useful when it comes to the Par statement, which is specifically designed to be deterministic. Other possible implementations could have chosen more stochastic approaches, the test failing in those particular cases. Another challenge was that While loops could run indefinitely. This was caused by the fact that the generated condition of the While loop would sometimes evaluate to True, thus running forever. I chose the simplest fix: I removed the the While statement from the Arbitrary instance of Stmt. The other possible fix would have been to add a "fuel" limit for every evaluation of each statement, but this would have required to change the the signature and consequently a significant part of the evaluation function's logic.
+	This property illustrates that the language's evaluation rules are consistent: running the same statement twice from the same initial state yields the exact same final state.
 	\[
 	\text{stmt}(\sigma, s) = \text{stmt}(\sigma, s)
 	\]
+	
+	\textbf{Testing Challenges:}
+	A major challenge in testing this property was the \texttt{While} construct. Randomly generated \texttt{While} loops frequently result in non-terminating programs, causing the test suite to hang.
+	
+	We considered several solutions:
+	\begin{itemize}
+		\item \textbf{Excluding While loops:} Removing \texttt{While} from the \texttt{Arbitrary} instance avoids non-termination but leaves a critical part of the language untested.
+		\item \textbf{Fuel Parameter in Semantics:} Adding a "fuel" argument to the interpreter (e.g., \texttt{stmt :: Int -> State -> Stmt -> State}) to forcibly stop execution. This was rejected because it would alter the language's semantics and signature purely for testing purposes.
+	\end{itemize}
+	
+	\textbf{Adopted Solution - Bounded Generation:}
+	We implemented a method called \textbf{Bounded Generation} within the \texttt{Arbitrary} instance. Instead of generating raw \texttt{While} loops, we generate "safe" loops that include a built-in termination mechanism. 
+	
+	The generator constructs a loop where:
+	\begin{enumerate}
+		\item A fresh variable (e.g., \texttt{\_\_limit}) is initialized with a small random integer (the fuel).
+		\item The loop condition is augmented to check if \texttt{\_\_limit > 0}.
+		\item The loop body is modified to decrement \texttt{\_\_limit} at each step.
+	\end{enumerate}
+	This approach ensures that all generated programs terminate by construction, allowing QuickCheck to verify the determinism property without modifying the interpreter itself.
+
 	\section{Usage Examples}
 	
+\begin{minipage}{\linewidth}
 	\subsection{Example 1: Loop and Arithmetic}
 	\begin{lstlisting}
 main :: IO ()
 main = do
   let x = Var "x"
-      y = Var "y"
-	  example = Seq
-        (Assign x (EInt 0))
-        (While (BLt (EVar x) (EInt 3)) (Block
-          [ Assign y (EAdd (EVar x) (EInt 1))
-          , Assign x (EAdd (EVar x) (EInt 1))
-          ]))
+  y = Var "y"
+  example = Seq
+    (Assign x (EInt 0))
+	(While (BLt (EVar x) (EInt 3)) (Block
+	  [ Assign y (EAdd (EVar x) (EInt 1))
+	  , Assign x (EAdd (EVar x) (EInt 1))
+	  ]))
 		
-     final = stmt (List []) example
-     (val, _) = get final y
+    final = stmt (List []) example
+    (val, _) = get final y
 		
   putStrLn $ "Result of program (value of y): " ++ show val
 	\end{lstlisting}
 	\textbf{Output:} Result of program (value of y): VInt 3
+\end{minipage}
 	
 	\subsection{Example 2: Parallel Assignment}
 	\begin{lstlisting}
@@ -277,6 +300,7 @@ stmt5 = Par
 	
 	\section{References}
 	\begin{itemize}
+		\item MIT Press Direct. \textit{The Formal Semantics of Programming Languages: An Introduction} \url{https://direct.mit.edu/books/monograph/4338/}
 		\item Chalmers University of Technology. \textit{QuickCheck: A Lightweight Tool for Random Testing of Haskell Programs} \url{https://dl.acm.org/doi/epdf/10.1145/351240.351266}
 		\item Hackage. \textit{QuickCheck: Automatic testing of Haskell programs} \url{https://hackage.haskell.org/package/QuickCheck}
 		\item sulzmann.github.io. \textit{QuickCheck: Automatic Testing} \url{https://sulzmann.github.io/ProgrammingParadigms/lec-haskell-testing.html}
