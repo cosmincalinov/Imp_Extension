@@ -19,14 +19,38 @@ instance Arbitrary Stmt where
     where
       arb 0 = oneof [return Skip, Assign <$> arbitrary <*> arbitrary]
       arb n = frequency [ (1, return Skip)
-                        , (1, Assign <$> arbitrary <*> arbitrary)
+                        , (4, Assign <$> arbitrary <*> arbitrary)
                         , (2, Seq <$> arbHalf <*> arbHalf)
                         , (2, If <$> arbitrary <*> arbHalf <*> arbHalf)
-                        -- , (1, While <$> arbitrary <*> arbHalf)
+                        , (1, safeWhile (n `min` 5)) -- reduced max size for While
                         , (2, Block <$> resize (n `div` 2) arbitrary)
                         , (2, Par <$> resize (n `div` 2) arbitrary)
                         ]
-        where arbHalf = arb (n `div` 2)
+        where 
+          arbHalf = arb (n `div` 2)
+          -- Bounded Generation
+          -- Helper to generate loops that are guaranteed to terminate
+          -- Generates: limit = N; while (original_cond && limit > 0) { body; limit--; }
+          safeWhile _ = do
+            originalCond <- resize 2 arbitrary -- simple condition
+            -- Force body to avoid nesting
+            body <- resize 2 (listOf1 (oneof [Assign <$> arbitrary <*> arbitrary])) 
+              >>= return . Block 
+            
+            limitVal <- choose (1, 3 :: Int)        -- limit iterations to very small number
+            limitSuffix <- choose (1, 1000 :: Int)  -- random suffix to avoid variable collision
+            
+            let limitVar = Var ("__limit_" ++ show limitSuffix)
+            let initLimit = Assign limitVar (EInt limitVal)
+            let checkLimit = BGt (EVar limitVar) (EInt 0)
+            let decrLimit = Assign limitVar (ESub (EVar limitVar) (EInt 1))
+            
+            -- Combine original condition with iteration limit
+            let safeCond = BAnd originalCond checkLimit
+            -- Add decrement to loop body
+            let safeBody = Seq body decrLimit
+            
+            return $ Seq initLimit (While safeCond safeBody)
 
 -- schimba MyState, adaugand sau inlocuind variabile
 set :: MyState -> Variable -> Value -> MyState

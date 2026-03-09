@@ -71,47 +71,48 @@
 	\subsection*{Common Data Types}
 	
 	\begin{lstlisting}
-		newtype Variable = Var String deriving (Eq, Ord, Show)
+newtype Variable = Var String deriving (Eq, Ord, Show)
 		
-		data Value = VInt Int | VBool Bool deriving (Eq, Show)
+data Value = VInt Int | VBool Bool deriving (Eq, Show)
 		
-		newtype MyState = List [(Variable, Value)] deriving (Eq, Show)
+newtype MyState = List [(Variable, Value)] 
+  deriving (Eq, Show)
 	\end{lstlisting}
 	
 	\subsection*{Expression}
 	\begin{lstlisting}
-		data Exp = EVar Variable
-		| EInt Int
-		| EAdd Exp Exp
-		| EMul Exp Exp
-		| ESub Exp Exp
-		| EDiv Exp Exp
-		| EMod Exp Exp
-		| EPow Exp Exp
-		| BExp Bool
-		| BEq Exp Exp
-		| BLt Exp Exp
-		| BGt Exp Exp
-		| BLte Exp Exp
-		| BGte Exp Exp
-		| BAnd Exp Exp
-		| BOr Exp Exp
-		| BNot Exp
-		deriving Show
+data Exp = EVar Variable
+    	 | EInt Int
+    	 | EAdd Exp Exp
+    	 | EMul Exp Exp
+    	 | ESub Exp Exp
+    	 | EDiv Exp Exp
+    	 | EMod Exp Exp
+    	 | EPow Exp Exp
+    	 | BExp Bool
+    	 | BEq Exp Exp
+    	 | BLt Exp Exp
+    	 | BGt Exp Exp
+    	 | BLte Exp Exp
+    	 | BGte Exp Exp
+    	 | BAnd Exp Exp
+    	 | BOr Exp Exp
+    	 | BNot Exp
+deriving Show
 	\end{lstlisting}
 	
 	\textbf{Note:} \texttt{EMod} and \texttt{EPow} correspond to the \texttt{\%} operator and \texttt{\^{}} operator, respectively.
 	
 	\subsection*{Statement}
 	\begin{lstlisting}
-		data Stmt = Assign Variable Exp 
-		| Seq Stmt Stmt 
-		| If Exp Stmt Stmt 
-		| While Exp Stmt
-		| Skip
-		| Block [Stmt]
-		| Par [Stmt]
-		deriving Show
+data Stmt = Assign Variable Exp 
+          | Seq Stmt Stmt 
+          | If Exp Stmt Stmt 
+          | While Exp Stmt
+          | Skip
+          | Block [Stmt]
+          | Par [Stmt]
+deriving Show
 	\end{lstlisting}
 	
 	\section{State}
@@ -206,6 +207,12 @@
 	\]
 	
 	\section{Property-based Testing using QuickCheck}
+	\subsection{About QuickCheck}
+	QuickCheck is library for property-based testing. Unlike traditional unit testing, where specific inputs are manually crafted, QuickCheck allows programmers to define general \textit{properties} that functions must satisfy. These properties are formulated as Haskell functions that take randomly generated inputs and return a boolean indicating success or failure.
+	
+	To use QuickCheck with custom data types, the \texttt{Arbitrary} typeclass must be implemented. This tells the library how to generate random values for a specific type. In this project, \texttt{Arbitrary} instances were created for \texttt{Exp} and \texttt{Stmt} to randomly generate syntax trees. 
+	
+	The \texttt{sized} function for controlling the size of these generated structures preventing infinite recursion. Additionally, the \texttt{frequency} function guides the random generation by assigning probabilities to different constructors. For instance, binary constructors (like \texttt{EAdd} or \texttt{Seq}) are given a higher frequency and split the size parameter in half for recursive calls, ensuring a balanced distribution of program structures, while leaf nodes or unary constructors decrement the size linearly.
 	\subsection{Skip doesn't modify the state of the program}
 	Skip statement's usefulness is shown in this property. 
 	\[
@@ -235,32 +242,32 @@
 	
 	\subsection{Example 1: Loop and Arithmetic}
 	\begin{lstlisting}
-		main :: IO ()
-		main = do
-		let x = Var "x"
-		y = Var "y"
-		example = Seq
-		(Assign x (EInt 0))
-		(While (BLt (EVar x) (EInt 3)) (Block
-		[ Assign y (EAdd (EVar x) (EInt 1))
-		, Assign x (EAdd (EVar x) (EInt 1))
-		]))
+main :: IO ()
+main = do
+  let x = Var "x"
+      y = Var "y"
+	  example = Seq
+        (Assign x (EInt 0))
+        (While (BLt (EVar x) (EInt 3)) (Block
+          [ Assign y (EAdd (EVar x) (EInt 1))
+          , Assign x (EAdd (EVar x) (EInt 1))
+          ]))
 		
-		final = stmt (List []) example
-		(val, _) = get final y
+     final = stmt (List []) example
+     (val, _) = get final y
 		
-		putStrLn $ "Result of program (value of y): " ++ show val
+  putStrLn $ "Result of program (value of y): " ++ show val
 	\end{lstlisting}
 	\textbf{Output:} Result of program (value of y): VInt 3
 	
 	\subsection{Example 2: Parallel Assignment}
 	\begin{lstlisting}
-		stmt5 = Par 
-		[ Assign (Var "x") (EInt 1)
-		, Assign (Var "y") (EInt 2)]
-		finalState3 = stmt (List []) stmt5
-		valX = fst (get finalState3 (Var "x"))
-		valY = fst (get finalState3 (Var "y"))
+stmt5 = Par 
+  [ Assign (Var "x") (EInt 1)
+  , Assign (Var "y") (EInt 2)]
+  finalState3 = stmt (List []) stmt5
+  valX = fst (get finalState3 (Var "x"))
+  valY = fst (get finalState3 (Var "y"))
 	\end{lstlisting}
 	\textbf{Result:}
 	\texttt{valX} is \texttt{VInt 1}, \texttt{valY} is \texttt{VInt 2}.
