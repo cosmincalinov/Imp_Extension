@@ -1,0 +1,103 @@
+\documentclass{beamer}
+\usetheme{metropolis}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+\title{Imp Language Extension in Haskell}
+\subtitle{Formal Semantics \& Verification}
+\author{Calinov Cosmin}
+\date{\today}
+
+\begin{document}
+	
+	\maketitle
+	
+	\begin{frame}{Overview}
+		\tableofcontents
+	\end{frame}
+
+	\section{Introduction}
+	\begin{frame}{Project Goals}
+		\begin{itemize}
+			\item implement an extended version of the IMP language
+			\item support for:
+			\begin{itemize}
+				\item local variables (blocks)
+				\item arithmetic operations (power, modulo)
+				\item parallel execution
+			\end{itemize}
+			\item verify semantics using QuickCheck
+		\end{itemize}
+	\end{frame}
+
+	\section{Syntax \& Semantics}
+	\begin{frame}[fragile]{Abstract Syntax}
+\begin{lstlisting}[language=Haskell]
+data Stmt
+  = Assign String Exp
+  | Seq Stmt Stmt
+  | If Exp Stmt Stmt
+  | While Exp Stmt
+  | Block Stmt        -- New scope
+  | Par Stmt Stmt     -- Parallelism
+  deriving (Show, Eq)
+\end{lstlisting}
+	\end{frame}
+
+	\begin{frame}{Small-Step Semantics}
+		We implemented small-step semantics to handle concurrency:
+		\[
+			\frac{\langle s_1, \sigma \rangle \rightarrow \langle s_1', \sigma' \rangle}
+			{\langle s_1 \parallel s_2, \sigma \rangle \rightarrow \langle s_1' \parallel s_2, \sigma' \rangle}
+		\]
+		This allows generic interleaving of instructions.
+	\end{frame}
+
+	\section{Verification}
+	\begin{frame}[fragile]{Testing with QuickCheck}
+		\textbf{Challenge:} Random \texttt{While} loops often don't terminate.
+		
+		\textbf{Solution:} Bounded Generation (Fuel).
+\begin{lstlisting}[language=Haskell]
+-- Generator ensures loop strictly decreases a counter
+safeWhile :: Int -> Gen Stmt
+safeWhile fuel = do
+    -- ... generation logic ...
+\end{lstlisting}
+	\end{frame}
+
+	\section{Conclusions}
+	\begin{frame}{Summary}
+		\begin{itemize}
+			\item Extended IMP with Block, Par, arithmetic.
+			\item Formal semantics guided the Haskell implementation.
+			\item Property-based testing verified key invariants (determinism for non-parallel code).
+		\end{itemize}
+	\end{frame}
+	
+\end{document}
